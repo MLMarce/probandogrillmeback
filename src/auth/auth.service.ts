@@ -33,6 +33,6 @@ export class AuthService {
   }
 
   async resetPassword(email: string): Promise<void> {
-    await this.supabase.recover(email);
+    await this.supabase.requestRecovery(email);
   }
 }

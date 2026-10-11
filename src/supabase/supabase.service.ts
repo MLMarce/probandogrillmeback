@@ -68,7 +68,7 @@ export class SupabaseService {
     }
   }
 
-  async recover(email: string): Promise<void> {
+  async requestRecovery(email: string): Promise<void> {
     await fetch(`${this.baseUrl}/auth/v1/recover`, {
       method: 'POST',
       headers: this.authHeaders(),
@@ -76,7 +76,7 @@ export class SupabaseService {
     });
   }
 
-  async createAdminUser(email: string, password: string): Promise<SupabaseUser> {
+  async createAccount(email: string, password: string): Promise<SupabaseUser> {
     const res = await fetch(`${this.baseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: this.authHeaders(),
@@ -84,7 +84,9 @@ export class SupabaseService {
     });
     if (!res.ok) {
       const body = (await res.text()) || res.statusText;
-      throw new Error(`No se pudo crear el usuario admin (${res.status}): ${body}`);
+      throw new Error(
+        `No se pudo crear la cuenta de Administrador de RRHH (${res.status}): ${body}`,
+      );
     }
     return (await res.json()) as SupabaseUser;
   }
