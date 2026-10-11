@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest",
-    "openapi:export": "ts-node --transpile-only scripts/export-openapi.ts"
+    "openapi:export": "ts-node --transpile-only scripts/export-openapi.ts",
+    "db:seed": "ts-node --transpile-only prisma/seed.ts",
+    "db:migrate": "prisma migrate deploy"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
