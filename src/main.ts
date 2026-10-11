@@ -1,9 +1,12 @@
 import 'reflect-metadata';
+import { config as loadEnv } from 'dotenv';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+
+loadEnv({ quiet: true });
 
 export function configureSwagger(app: INestApplication) {
   const config = new DocumentBuilder()

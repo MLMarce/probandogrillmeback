@@ -35,7 +35,16 @@
     "schemas": {
       "HealthStatus": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok",
+            "description": "Estado general del servicio"
+          }
+        },
+        "required": [
+          "status"
+        ]
       }
     }
   }
