@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
-import { ESTADOS_EMPLEADO } from '../../empleados/empleado.dto';
+import { IsDateString, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateEmpleadoDto {
   @ApiPropertyOptional({ description: 'Si no se provee, se autgenera secuencialmente' })
@@ -63,9 +62,4 @@ export class CreateEmpleadoDto {
   @IsOptional()
   @IsString()
   supervisorId?: string;
-
-  @ApiPropertyOptional({ enum: ESTADOS_EMPLEADO, default: 'activo' })
-  @IsOptional()
-  @IsIn(ESTADOS_EMPLEADO)
-  estado?: (typeof ESTADOS_EMPLEADO)[number];
 }

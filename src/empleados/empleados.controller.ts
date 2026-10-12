@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { EmpleadosService } from './empleados.service';
 import { EmpleadoListItem, ListEmpleadosQueryDto, PaginatedEmpleados } from './empleado.dto';
 import { CreateEmpleadoDto } from './dto/create-empleado.dto';
@@ -17,6 +17,7 @@ export class EmpleadosController {
 
   @Post()
   @ApiCreatedResponse({ type: EmpleadoListItem })
+  @ApiHeader({ name: 'authorization', required: false, description: 'Bearer <token> del admin' })
   create(
     @Body() dto: CreateEmpleadoDto,
     @Headers('authorization') authorization?: string,

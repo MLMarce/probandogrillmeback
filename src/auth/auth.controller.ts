@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, HttpCode, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { extractBearerToken } from '../common/extract-bearer';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -41,8 +42,8 @@ export class AuthController {
   }
 
   private extractToken(authorization?: string): string {
-    const match = authorization?.match(/^Bearer (.+)$/);
-    if (!match) throw new UnauthorizedException('Falta el header Authorization Bearer');
-    return match[1];
+    const token = extractBearerToken(authorization);
+    if (!token) throw new UnauthorizedException('Falta el header Authorization Bearer');
+    return token;
   }
 }

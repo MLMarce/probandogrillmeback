@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { extractBearerToken } from '../common/extract-bearer';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { EstadoEmpleado, ListEmpleadosQueryDto, PaginatedEmpleados } from './empleado.dto';
@@ -72,52 +73,80 @@ export class EmpleadosService {
       }
     }
 
-    const legajo = dto.legajo?.trim() || (await this.nextLegajo());
+    const legajoProvisto = dto.legajo?.trim() || undefined;
 
-    try {
-      const empleado = await this.prisma.empleado.create({
-        data: {
-          legajo,
-          nombre: dto.nombre.trim(),
-          apellido: dto.apellido.trim(),
-          dni: dto.dni.trim(),
-          fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : null,
-          email: dto.email ?? null,
-          telefono: dto.telefono ?? null,
-          direccion: dto.direccion ?? null,
-          puesto: dto.puesto ?? null,
-          fechaIngreso: dto.fechaIngreso ? new Date(dto.fechaIngreso) : null,
-          estado: dto.estado ?? 'activo',
-          areaId: dto.areaId ?? null,
-          supervisorId: dto.supervisorId ?? null,
-        },
-      });
+    const empleado = await this.crearConLegajo(legajoProvisto, dto, area?.id ?? null);
 
-      await this.audit.record('create', autor, 'empleado', {
-        legajo: empleado.legajo,
-        dni: empleado.dni,
-        nombre: empleado.nombre,
-        apellido: empleado.apellido,
-      });
+    await this.audit.record('create', autor, 'empleado', {
+      legajo: empleado.legajo,
+      dni: empleado.dni,
+      nombre: empleado.nombre,
+      apellido: empleado.apellido,
+      email: empleado.email,
+      telefono: empleado.telefono,
+      direccion: empleado.direccion,
+      puesto: empleado.puesto,
+      estado: empleado.estado,
+      areaId: empleado.areaId,
+      supervisorId: empleado.supervisorId,
+      fechaNacimiento: empleado.fechaNacimiento,
+      fechaIngreso: empleado.fechaIngreso,
+    });
 
-      return {
-        id: empleado.id,
-        legajo: empleado.legajo,
-        nombre: empleado.nombre,
-        apellido: empleado.apellido,
-        puesto: empleado.puesto,
-        estado: empleado.estado as EstadoEmpleado,
-        areaId: area?.id ?? null,
-        areaNombre: area?.nombre ?? null,
-      };
-    } catch (error) {
-      if (this.isUniqueViolation(error, 'legajo')) {
-        throw new ConflictException('Ya existe un Empleado con ese legajo');
+    return {
+      id: empleado.id,
+      legajo: empleado.legajo,
+      nombre: empleado.nombre,
+      apellido: empleado.apellido,
+      puesto: empleado.puesto,
+      estado: empleado.estado as EstadoEmpleado,
+      areaId: area?.id ?? null,
+      areaNombre: area?.nombre ?? null,
+    };
+  }
+
+  private async crearConLegajo(
+    legajoProvisto: string | undefined,
+    dto: CreateEmpleadoDto,
+    areaId: string | null,
+    reintentos = 3,
+  ) {
+    for (let intento = 0; ; intento++) {
+      const legajo = legajoProvisto ?? (await this.nextLegajo());
+      try {
+        return await this.prisma.empleado.create({
+          data: {
+            legajo,
+            nombre: dto.nombre.trim(),
+            apellido: dto.apellido.trim(),
+            dni: dto.dni.trim(),
+            fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : null,
+            email: dto.email ?? null,
+            telefono: dto.telefono ?? null,
+            direccion: dto.direccion ?? null,
+            puesto: dto.puesto ?? null,
+            fechaIngreso: dto.fechaIngreso ? new Date(dto.fechaIngreso) : null,
+            estado: 'activo',
+            areaId,
+            supervisorId: dto.supervisorId ?? null,
+          },
+        });
+      } catch (error) {
+        if (
+          !legajoProvisto &&
+          this.isUniqueViolation(error, 'legajo') &&
+          intento < reintentos
+        ) {
+          continue;
+        }
+        if (this.isUniqueViolation(error, 'legajo')) {
+          throw new ConflictException('Ya existe un Empleado con ese legajo');
+        }
+        if (this.isUniqueViolation(error, 'dni')) {
+          throw new ConflictException('Ya existe un Empleado con ese DNI');
+        }
+        throw error;
       }
-      if (this.isUniqueViolation(error, 'dni')) {
-        throw new ConflictException('Ya existe un Empleado con ese DNI');
-      }
-      throw error;
     }
   }
 
@@ -132,9 +161,9 @@ export class EmpleadosService {
   }
 
   private async resolveActor(authorization?: string): Promise<string | null> {
-    const match = authorization?.match(/^Bearer (.+)$/);
-    if (!match) return null;
-    const user = await this.supabase.getUser(match[1]);
+    const token = extractBearerToken(authorization);
+    if (!token) return null;
+    const user = await this.supabase.getUser(token);
     return user.email ?? null;
   }
 

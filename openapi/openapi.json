@@ -331,8 +331,9 @@
         "parameters": [
           {
             "name": "authorization",
-            "required": true,
+            "required": false,
             "in": "header",
+            "description": "Bearer <token> del admin",
             "schema": {
               "type": "string"
             }
@@ -622,15 +623,6 @@
           "supervisorId": {
             "type": "string",
             "description": "Id de un Empleado activo"
-          },
-          "estado": {
-            "type": "string",
-            "enum": [
-              "activo",
-              "inactivo",
-              "licencia"
-            ],
-            "default": "activo"
           }
         },
         "required": [
