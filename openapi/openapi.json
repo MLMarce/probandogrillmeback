@@ -325,6 +325,44 @@
         "tags": [
           "empleados"
         ]
+      },
+      "post": {
+        "operationId": "EmpleadosController_create",
+        "parameters": [
+          {
+            "name": "authorization",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmpleadoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmpleadoListItem"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "empleados"
+        ]
       }
     }
   },
@@ -541,6 +579,64 @@
           "total",
           "page",
           "pageSize"
+        ]
+      },
+      "CreateEmpleadoDto": {
+        "type": "object",
+        "properties": {
+          "legajo": {
+            "type": "string",
+            "description": "Si no se provee, se autgenera secuencialmente"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string"
+          },
+          "fechaNacimiento": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "direccion": {
+            "type": "string"
+          },
+          "puesto": {
+            "type": "string",
+            "example": "Mantenimiento de electricidad"
+          },
+          "fechaIngreso": {
+            "type": "string"
+          },
+          "areaId": {
+            "type": "string"
+          },
+          "supervisorId": {
+            "type": "string",
+            "description": "Id de un Empleado activo"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "activo",
+              "inactivo",
+              "licencia"
+            ],
+            "default": "activo"
+          }
+        },
+        "required": [
+          "nombre",
+          "apellido",
+          "dni"
         ]
       }
     }

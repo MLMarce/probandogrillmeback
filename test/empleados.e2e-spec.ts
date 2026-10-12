@@ -2,14 +2,25 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { SupabaseService } from '../src/supabase/supabase.service';
 
 function makePrismaMock() {
   return {
     empleado: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
       count: jest.fn(),
+      create: jest.fn(),
+    },
+    area: {
+      findUnique: jest.fn(),
+    },
+    auditoria: {
+      create: jest.fn(),
     },
   };
 }
@@ -33,14 +44,17 @@ function empleadoRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe('Empleados listado (e2e)', () => {
+describe('Empleados listado y alta (e2e)', () => {
   let app: INestApplication;
   const prisma = makePrismaMock();
+  const supabase = { getUser: jest.fn() };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)
+      .overrideProvider(SupabaseService)
+      .useValue(supabase)
       .compile();
     app = makeApp(moduleRef);
     await app.init();
@@ -54,6 +68,10 @@ describe('Empleados listado (e2e)', () => {
     jest.clearAllMocks();
     prisma.empleado.findMany.mockResolvedValue([]);
     prisma.empleado.count.mockResolvedValue(0);
+    prisma.empleado.findUnique.mockResolvedValue(null);
+    prisma.empleado.findFirst.mockResolvedValue(null);
+    prisma.area.findUnique.mockResolvedValue(null);
+    prisma.auditoria.create.mockResolvedValue({});
   });
 
   it('devuelve un listado paginado vacío por defecto', async () => {
@@ -126,6 +144,133 @@ describe('Empleados listado (e2e)', () => {
 
   it('rechaza un estado fuera del vocabulario con 400', async () => {
     await request(app.getHttpServer()).get('/empleados?estado=baja').expect(400);
+  });
+
+  const altaBody = { nombre: 'Ana', apellido: 'Suárez', dni: '30111222' };
+
+  function mockCreateOk(overrides: Record<string, unknown> = {}) {
+    prisma.empleado.create.mockResolvedValue({
+      id: 'e9',
+      legajo: 'L-0006',
+      nombre: 'Ana',
+      apellido: 'Suárez',
+      dni: '30111222',
+      puesto: null,
+      estado: 'activo',
+      ...overrides,
+    });
+  }
+
+  it('crea con legajo autogenerado secuencial cuando no se provee', async () => {
+    prisma.empleado.count.mockResolvedValue(5);
+    mockCreateOk();
+
+    const res = await request(app.getHttpServer())
+      .post('/empleados')
+      .send(altaBody)
+      .expect(201);
+
+    expect(res.body.legajo).toBe('L-0006');
+    expect(prisma.empleado.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ legajo: 'L-0006', estado: 'activo' }),
+      }),
+    );
+  });
+
+  it('crea con el legajo provisto', async () => {
+    mockCreateOk({ legajo: 'L-777' });
+
+    const res = await request(app.getHttpServer())
+      .post('/empleados')
+      .send({ ...altaBody, legajo: 'L-777' })
+      .expect(201);
+
+    expect(res.body.legajo).toBe('L-777');
+  });
+
+  it('rechaza un legajo duplicado con 409', async () => {
+    prisma.empleado.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '6.16.2',
+        meta: { target: ['legajo'] },
+      }),
+    );
+
+    const res = await request(app.getHttpServer())
+      .post('/empleados')
+      .send(altaBody)
+      .expect(409);
+    expect(res.body.message).toMatch(/legajo/i);
+  });
+
+  it('rechaza un DNI duplicado con 409', async () => {
+    prisma.empleado.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '6.16.2',
+        meta: { target: ['dni'] },
+      }),
+    );
+
+    const res = await request(app.getHttpServer())
+      .post('/empleados')
+      .send(altaBody)
+      .expect(409);
+    expect(res.body.message).toMatch(/dni/i);
+  });
+
+  it('rechaza un email inválido con 400', async () => {
+    await request(app.getHttpServer())
+      .post('/empleados')
+      .send({ ...altaBody, email: 'no-es-email' })
+      .expect(400);
+    expect(prisma.empleado.create).not.toHaveBeenCalled();
+  });
+
+  it('valida que el Área indicada exista', async () => {
+    await request(app.getHttpServer())
+      .post('/empleados')
+      .send({ ...altaBody, areaId: 'area-inexistente' })
+      .expect(422);
+    expect(prisma.empleado.create).not.toHaveBeenCalled();
+  });
+
+  it('registra la auditoría de creación con el autor de la sesión', async () => {
+    prisma.area.findUnique.mockResolvedValue({ id: 'a1', nombre: 'Mantenimiento' });
+    supabase.getUser.mockResolvedValue({ email: 'admin@empresa.com' });
+    mockCreateOk({ legajo: 'L-777' });
+
+    await request(app.getHttpServer())
+      .post('/empleados')
+      .set('Authorization', 'Bearer token-valido')
+      .send({ ...altaBody, legajo: 'L-777', areaId: 'a1' })
+      .expect(201);
+
+    expect(supabase.getUser).toHaveBeenCalledWith('token-valido');
+    expect(prisma.auditoria.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        evento: 'create',
+        autor: 'admin@empresa.com',
+        entidad: 'empleado',
+        detalle: expect.objectContaining({ legajo: 'L-777', dni: '30111222' }),
+      }),
+    });
+  });
+
+  it('crea sin autor cuando no viene token (delegado al guard global)', async () => {
+    mockCreateOk();
+
+    await request(app.getHttpServer())
+      .post('/empleados')
+      .send(altaBody)
+      .expect(201);
+
+    expect(supabase.getUser).not.toHaveBeenCalled();
+    expect(prisma.auditoria.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ autor: null }) }),
+    );
   });
 });
 
@@ -203,5 +348,30 @@ describeIfDb('Empleados listado persistence (e2e)', () => {
       .expect(200);
     expect(res.body.items).toEqual([]);
     expect(res.body.total).toBe(0);
+  });
+
+  it('da de alta un Empleado y persiste la auditoría', async () => {
+    const sufijo = Date.now().toString(36);
+    const res = await request(app.getHttpServer())
+      .post('/empleados')
+      .send({ nombre: 'Alta', apellido: `Persiste ${sufijo}`, dni: `${Date.now()}` })
+      .expect(201);
+    creados.push(res.body.id);
+    expect(res.body.legajo).toMatch(/^L-\d{4}$/);
+
+    const creado = await prisma.empleado.findUnique({ where: { id: res.body.id } });
+    expect(creado?.estado).toBe('activo');
+
+    const auditorias = await prisma.auditoria.findMany({
+      where: { evento: 'create', entidad: 'empleado' },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+    expect(auditorias[0].detalle).toMatchObject({ legajo: res.body.legajo });
+
+    await request(app.getHttpServer())
+      .post('/empleados')
+      .send({ nombre: 'Otro', apellido: `Persiste ${sufijo}`, dni: creado!.dni })
+      .expect(409);
   });
 });
