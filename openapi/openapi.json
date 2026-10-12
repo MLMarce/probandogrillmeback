@@ -142,6 +142,120 @@
           "auth"
         ]
       }
+    },
+    "/areas": {
+      "get": {
+        "operationId": "AreasController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AreaResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "areas"
+        ]
+      },
+      "post": {
+        "operationId": "AreasController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAreaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "areas"
+        ]
+      }
+    },
+    "/areas/{id}": {
+      "patch": {
+        "operationId": "AreasController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAreaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "areas"
+        ]
+      },
+      "delete": {
+        "operationId": "AreasController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "areas"
+        ]
+      }
     }
   },
   "info": {
@@ -235,6 +349,55 @@
         "required": [
           "email"
         ]
+      },
+      "AreaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "supervisorId": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "supervisorId"
+        ]
+      },
+      "CreateAreaDto": {
+        "type": "object",
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "example": "Mantenimiento"
+          },
+          "supervisorId": {
+            "type": "string",
+            "description": "Id de un Empleado activo que supervisa el Área"
+          }
+        },
+        "required": [
+          "nombre"
+        ]
+      },
+      "UpdateAreaDto": {
+        "type": "object",
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "example": "Mantenimiento"
+          },
+          "supervisorId": {
+            "type": "object",
+            "description": "Id de un Empleado activo; null para quitar"
+          }
+        }
       }
     }
   }

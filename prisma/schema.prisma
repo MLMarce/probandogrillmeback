@@ -7,6 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Area {
+  id           String     @id @default(cuid())
+  nombre       String
+  nombreNorm   String     @unique @map("nombre_norm")
+  supervisorId String?    @map("supervisor_id")
+  supervisor   Empleado?  @relation("AreaSupervisor", fields: [supervisorId], references: [id])
+  empleados    Empleado[]
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@map("area")
+}
+
+model Empleado {
+  id                String    @id @default(cuid())
+  legajo            String    @unique
+  nombre            String
+  apellido          String
+  dni               String    @unique
+  estado            String    @default("activo")
+  areaId            String?   @map("area_id")
+  area              Area?     @relation(fields: [areaId], references: [id])
+  supervisorId      String?   @map("supervisor_id")
+  supervisor        Empleado? @relation("EmpleadoSupervisor", fields: [supervisorId], references: [id])
+  reportados        Empleado[] @relation("EmpleadoSupervisor")
+  areasSupervisadas Area[]     @relation("AreaSupervisor")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@map("empleados")
+}
+
 model Auditoria {
   id        String   @id @default(cuid())
   evento    String
