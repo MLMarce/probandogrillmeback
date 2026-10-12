@@ -20,21 +20,41 @@ model Area {
 }
 
 model Empleado {
-  id                String    @id @default(cuid())
-  legajo            String    @unique
-  nombre            String
-  apellido          String
-  dni               String    @unique
-  estado            String    @default("activo")
-  areaId            String?   @map("area_id")
-  area              Area?     @relation(fields: [areaId], references: [id])
-  supervisorId      String?   @map("supervisor_id")
-  supervisor        Empleado? @relation("EmpleadoSupervisor", fields: [supervisorId], references: [id])
-  reportados        Empleado[] @relation("EmpleadoSupervisor")
-  areasSupervisadas Area[]     @relation("AreaSupervisor")
-  createdAt         DateTime  @default(now()) @map("created_at")
+  id              String    @id @default(cuid())
+  legajo          String    @unique
+  nombre          String
+  apellido        String
+  dni             String    @unique
+  fechaNacimiento DateTime? @map("fecha_nacimiento")
+  email           String?
+  telefono        String?
+  direccion       String?
+  puesto          String?
+  fechaIngreso    DateTime? @map("fecha_ingreso")
+  estado          String    @default("activo")
+  areaId          String?   @map("area_id")
+  area            Area?     @relation(fields: [areaId], references: [id])
+  supervisorId    String?   @map("supervisor_id")
+  supervisor      Empleado? @relation("EmpleadoSupervisor", fields: [supervisorId], references: [id])
+  reportados      Empleado[] @relation("EmpleadoSupervisor")
+  areasSupervisadas Area[]   @relation("AreaSupervisor")
+  licencias       Licencia[]
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   @@map("empleados")
+}
+
+model Licencia {
+  id          String    @id @default(cuid())
+  empleadoId  String    @map("empleado_id")
+  empleado    Empleado  @relation(fields: [empleadoId], references: [id])
+  desde       DateTime
+  hasta       DateTime
+  motivo      String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([empleadoId])
+  @@map("licencia")
 }
 
 model Auditoria {
