@@ -20,7 +20,11 @@ export class UpdateAreaDto {
   @MinLength(2)
   nombre?: string;
 
-  @ApiPropertyOptional({ description: 'Id de un Empleado activo; null para quitar' })
+  @ApiPropertyOptional({
+    description: 'Id de un Empleado activo; null para quitar',
+    type: String,
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   supervisorId?: string | null;
@@ -33,6 +37,6 @@ export class AreaResponse {
   @ApiProperty()
   nombre!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   supervisorId!: string | null;
 }

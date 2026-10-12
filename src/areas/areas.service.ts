@@ -14,7 +14,7 @@ export class AreasService {
 
   async findAll(): Promise<AreaResponse[]> {
     const areas = await this.prisma.area.findMany({ orderBy: { nombre: 'asc' } });
-    return areas.map((a) => ({ id: a.id, nombre: a.nombre, supervisorId: a.supervisorId }));
+    return areas.map((a) => this.toResponse(a));
   }
 
   async create(dto: CreateAreaDto): Promise<AreaResponse> {
@@ -28,11 +28,9 @@ export class AreasService {
     }
     try {
       const area = await this.prisma.area.create({ data });
-      return { id: area.id, nombre: area.nombre, supervisorId: area.supervisorId };
+      return this.toResponse(area);
     } catch (error) {
-      if (this.isUniqueViolation(error)) {
-        throw new ConflictException('Ya existe un Área con ese nombre');
-      }
+      this.rethrowIfNombreDuplicado(error);
       throw error;
     }
   }
@@ -55,11 +53,9 @@ export class AreasService {
     }
     try {
       const updated = await this.prisma.area.update({ where: { id }, data });
-      return { id: updated.id, nombre: updated.nombre, supervisorId: updated.supervisorId };
+      return this.toResponse(updated);
     } catch (error) {
-      if (this.isUniqueViolation(error)) {
-        throw new ConflictException('Ya existe un Área con ese nombre');
-      }
+      this.rethrowIfNombreDuplicado(error);
       throw error;
     }
   }
@@ -76,6 +72,20 @@ export class AreasService {
 
   private normalize(nombre: string): string {
     return nombre.trim().toLowerCase();
+  }
+
+  private toResponse(area: {
+    id: string;
+    nombre: string;
+    supervisorId: string | null;
+  }): AreaResponse {
+    return { id: area.id, nombre: area.nombre, supervisorId: area.supervisorId };
+  }
+
+  private rethrowIfNombreDuplicado(error: unknown): void {
+    if (this.isUniqueViolation(error)) {
+      throw new ConflictException('Ya existe un Área con ese nombre');
+    }
   }
 
   private isUniqueViolation(error: unknown): boolean {

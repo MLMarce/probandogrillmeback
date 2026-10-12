@@ -8,7 +8,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AreasService } from './areas.service';
 import { AreaResponse, CreateAreaDto, UpdateAreaDto } from './area.dto';
 
@@ -24,7 +24,7 @@ export class AreasController {
   }
 
   @Post()
-  @ApiOkResponse({ type: AreaResponse })
+  @ApiCreatedResponse({ type: AreaResponse })
   create(@Body() dto: CreateAreaDto): Promise<AreaResponse> {
     return this.areas.create(dto);
   }

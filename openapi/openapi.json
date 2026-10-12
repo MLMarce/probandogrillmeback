@@ -180,7 +180,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -360,7 +360,7 @@
             "type": "string"
           },
           "supervisorId": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           }
         },
@@ -394,8 +394,9 @@
             "example": "Mantenimiento"
           },
           "supervisorId": {
-            "type": "object",
-            "description": "Id de un Empleado activo; null para quitar"
+            "type": "string",
+            "description": "Id de un Empleado activo; null para quitar",
+            "nullable": true
           }
         }
       }
