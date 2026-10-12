@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+
+export const ESTADOS_EMPLEADO = ['activo', 'inactivo', 'licencia'] as const;
+export type EstadoEmpleado = (typeof ESTADOS_EMPLEADO)[number];
 
 export class ListEmpleadosQueryDto {
   @ApiPropertyOptional({ description: 'Búsqueda por nombre, apellido o legajo' })
@@ -13,10 +16,10 @@ export class ListEmpleadosQueryDto {
   @IsString()
   areaId?: string;
 
-  @ApiPropertyOptional({ enum: ['activo', 'inactivo', 'licencia'] })
+  @ApiPropertyOptional({ enum: ESTADOS_EMPLEADO })
   @IsOptional()
-  @IsString()
-  estado?: string;
+  @IsIn(ESTADOS_EMPLEADO)
+  estado?: EstadoEmpleado;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -50,8 +53,8 @@ export class EmpleadoListItem {
   @ApiProperty({ type: String, nullable: true })
   puesto!: string | null;
 
-  @ApiProperty()
-  estado!: string;
+  @ApiProperty({ enum: ESTADOS_EMPLEADO })
+  estado!: EstadoEmpleado;
 
   @ApiProperty({ type: String, nullable: true })
   areaId!: string | null;

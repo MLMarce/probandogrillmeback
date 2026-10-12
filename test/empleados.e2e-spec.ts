@@ -10,8 +10,6 @@ function makePrismaMock() {
     empleado: {
       findMany: jest.fn(),
       count: jest.fn(),
-      create: jest.fn(),
-      findFirst: jest.fn(),
     },
   };
 }
@@ -125,6 +123,10 @@ describe('Empleados listado (e2e)', () => {
     await request(app.getHttpServer()).get('/empleados?page=0').expect(400);
     await request(app.getHttpServer()).get('/empleados?pageSize=1000').expect(400);
   });
+
+  it('rechaza un estado fuera del vocabulario con 400', async () => {
+    await request(app.getHttpServer()).get('/empleados?estado=baja').expect(400);
+  });
 });
 
 const describeIfDb = process.env.TEST_DATABASE_URL ? describe : describe.skip;
@@ -150,8 +152,17 @@ describeIfDb('Empleados listado persistence (e2e)', () => {
 
   it('filtra y pagina sobre datos reales', async () => {
     const sufijo = Date.now().toString(36);
+    const area = await prisma.area.create({
+      data: { nombre: `Lista ${sufijo}`, nombreNorm: `lista ${sufijo}` },
+    });
     const a = await prisma.empleado.create({
-      data: { legajo: `L-${sufijo}-1`, nombre: 'Lucas', apellido: 'Gómez', dni: `${Date.now()}1` },
+      data: {
+        legajo: `L-${sufijo}-1`,
+        nombre: 'Lucas',
+        apellido: 'Gómez',
+        dni: `${Date.now()}1`,
+        areaId: area.id,
+      },
     });
     const b = await prisma.empleado.create({
       data: {
@@ -169,12 +180,21 @@ describeIfDb('Empleados listado persistence (e2e)', () => {
       .expect(200);
     expect(res.body.total).toBe(1);
     expect(res.body.items[0].nombre).toBe('Lucas');
+    expect(res.body.items[0].areaNombre).toBe(area.nombre);
+
+    const porArea = await request(app.getHttpServer())
+      .get(`/empleados?areaId=${area.id}`)
+      .expect(200);
+    expect(porArea.body.total).toBe(1);
+    expect(porArea.body.items[0].legajo).toBe(a.legajo);
 
     const paginado = await request(app.getHttpServer())
       .get(`/empleados?search=${sufijo}&pageSize=1&page=2`)
       .expect(200);
     expect(paginado.body.total).toBe(2);
     expect(paginado.body.items).toHaveLength(1);
+
+    await prisma.area.delete({ where: { id: area.id } });
   });
 
   it('el listado vacío responde items []', async () => {

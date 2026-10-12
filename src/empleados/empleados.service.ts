@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ListEmpleadosQueryDto, PaginatedEmpleados } from './empleado.dto';
+import { ListEmpleadosQueryDto, PaginatedEmpleados, EstadoEmpleado } from './empleado.dto';
 
 @Injectable()
 export class EmpleadosService {
@@ -30,7 +30,7 @@ export class EmpleadosService {
         nombre: e.nombre,
         apellido: e.apellido,
         puesto: e.puesto,
-        estado: e.estado,
+        estado: e.estado as EstadoEmpleado,
         areaId: e.area?.id ?? null,
         areaNombre: e.area?.nombre ?? null,
       })),

@@ -490,7 +490,12 @@
             "nullable": true
           },
           "estado": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "activo",
+              "inactivo",
+              "licencia"
+            ]
           },
           "areaId": {
             "type": "string",
