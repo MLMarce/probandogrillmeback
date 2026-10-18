@@ -16,6 +16,7 @@ export function makePrismaMock() {
     },
     area: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
     licencia: {
       findFirst: jest.fn(),

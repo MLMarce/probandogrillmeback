@@ -4,6 +4,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { EmpleadosModule } from './empleados/empleados.module';
 import { HealthModule } from './health/health.module';
+import { ImportacionModule } from './importacion/importacion.module';
 import { LicenciasModule } from './licencias/licencias.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SupabaseModule } from './supabase/supabase.module';
@@ -18,6 +19,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     AreasModule,
     EmpleadosModule,
     LicenciasModule,
+    ImportacionModule,
   ],
 })
 export class AppModule {}

@@ -598,6 +598,80 @@
           "licencias"
         ]
       }
+    },
+    "/importaciones/preview": {
+      "post": {
+        "operationId": "ImportacionController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportarCsvDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Valida el CSV fila por fila sin escribir nada",
+        "tags": [
+          "importaciones"
+        ]
+      }
+    },
+    "/importaciones/confirm": {
+      "post": {
+        "operationId": "ImportacionController_confirm",
+        "parameters": [
+          {
+            "name": "authorization",
+            "required": false,
+            "in": "header",
+            "description": "Bearer <token> del Administrador de RRHH",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportarCsvDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Inserta solo las filas válidas y devuelve el resumen",
+        "tags": [
+          "importaciones"
+        ]
+      }
     }
   },
   "info": {
@@ -1055,6 +1129,186 @@
           "hasta",
           "motivo",
           "vigente"
+        ]
+      },
+      "ImportarCsvDto": {
+        "type": "object",
+        "properties": {
+          "csv": {
+            "type": "string",
+            "description": "Contenido completo del CSV, con fila de encabezados"
+          }
+        },
+        "required": [
+          "csv"
+        ]
+      },
+      "FilaPreview": {
+        "type": "object",
+        "properties": {
+          "fila": {
+            "type": "number",
+            "description": "Número de fila de datos (1 = primera fila después del encabezado)"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "valida",
+              "error",
+              "omitida"
+            ]
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "legajo": {
+            "type": "string",
+            "nullable": true,
+            "description": "null si se autgenerará en la confirmación"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "area": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "fila",
+          "estado",
+          "motivo",
+          "legajo",
+          "nombre",
+          "apellido",
+          "dni",
+          "email",
+          "area"
+        ]
+      },
+      "ResumenPreview": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "validas": {
+            "type": "number"
+          },
+          "errores": {
+            "type": "number"
+          },
+          "omitidas": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "validas",
+          "errores",
+          "omitidas"
+        ]
+      },
+      "PreviewResponse": {
+        "type": "object",
+        "properties": {
+          "filas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilaPreview"
+            }
+          },
+          "resumen": {
+            "$ref": "#/components/schemas/ResumenPreview"
+          }
+        },
+        "required": [
+          "filas",
+          "resumen"
+        ]
+      },
+      "FilaConfirmacion": {
+        "type": "object",
+        "properties": {
+          "fila": {
+            "type": "number"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "creada",
+              "omitida",
+              "error"
+            ]
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "legajo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Legajo final del Empleado creado"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fila",
+          "estado",
+          "motivo",
+          "legajo",
+          "nombre",
+          "apellido",
+          "dni"
+        ]
+      },
+      "ConfirmResponse": {
+        "type": "object",
+        "properties": {
+          "creados": {
+            "type": "number"
+          },
+          "omitidos": {
+            "type": "number"
+          },
+          "errores": {
+            "type": "number"
+          },
+          "totalFilas": {
+            "type": "number"
+          },
+          "detalle": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilaConfirmacion"
+            }
+          }
+        },
+        "required": [
+          "creados",
+          "omitidos",
+          "errores",
+          "totalFilas",
+          "detalle"
         ]
       }
     }
