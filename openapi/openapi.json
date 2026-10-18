@@ -444,6 +444,86 @@
           "empleados"
         ]
       }
+    },
+    "/empleados/{id}/baja": {
+      "post": {
+        "operationId": "EmpleadosController_darDeBaja",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "required": false,
+            "in": "header",
+            "description": "Bearer <token> del Administrador de RRHH",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmpleadoDetalle"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Baja lógica: Estado → inactivo, sin borrado físico",
+        "tags": [
+          "empleados"
+        ]
+      }
+    },
+    "/empleados/{id}/reactivar": {
+      "post": {
+        "operationId": "EmpleadosController_reactivar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "required": false,
+            "in": "header",
+            "description": "Bearer <token> del Administrador de RRHH",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmpleadoDetalle"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reactiva un Empleado inactivo → Estado activo",
+        "tags": [
+          "empleados"
+        ]
+      }
     }
   },
   "info": {

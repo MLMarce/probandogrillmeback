@@ -20,6 +20,9 @@ function makePrismaMock() {
     area: {
       findUnique: jest.fn(),
     },
+    licencia: {
+      findFirst: jest.fn(),
+    },
     auditoria: {
       create: jest.fn(),
     },
@@ -72,6 +75,7 @@ describe('Empleados listado y alta (e2e)', () => {
     prisma.empleado.findUnique.mockResolvedValue(null);
     prisma.empleado.findFirst.mockResolvedValue(null);
     prisma.area.findUnique.mockResolvedValue(null);
+    prisma.licencia.findFirst.mockResolvedValue(null);
     prisma.auditoria.create.mockResolvedValue({});
   });
 
@@ -477,6 +481,85 @@ describe('Empleados listado y alta (e2e)', () => {
       }),
     );
   });
+
+  it('da de baja lógicamente y audita sin borrar el registro', async () => {
+    prisma.empleado.findFirst
+      .mockResolvedValueOnce(detalleRow())
+      .mockResolvedValueOnce(detalleRow({ estado: 'inactivo' }));
+    prisma.empleado.update.mockResolvedValue({});
+    supabase.getUser.mockResolvedValue({ email: 'admin@empresa.com' });
+
+    const res = await request(app.getHttpServer())
+      .post('/empleados/e1/baja')
+      .set('Authorization', 'Bearer token-valido')
+      .expect(200);
+    expect(res.body).toMatchObject({ id: 'e1', estado: 'inactivo' });
+    expect(prisma.empleado.update).toHaveBeenCalledWith({
+      where: { id: 'e1' },
+      data: { estado: 'inactivo' },
+    });
+    expect(prisma.auditoria.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        evento: 'baja',
+        autor: 'admin@empresa.com',
+        entidad: 'empleado',
+        detalle: expect.objectContaining({
+          id: 'e1',
+          antes: 'activo',
+          despues: 'inactivo',
+        }),
+      }),
+    });
+  });
+
+  it('rechaza la baja de un Empleado ya inactivo', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(detalleRow({ estado: 'inactivo' }));
+
+    await request(app.getHttpServer()).post('/empleados/e1/baja').expect(409);
+    expect(prisma.empleado.update).not.toHaveBeenCalled();
+  });
+
+  it('bloquea la baja cuando hay una licencia vigente', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(detalleRow({ estado: 'licencia' }));
+    prisma.licencia.findFirst.mockResolvedValue({ id: 'lic1' });
+
+    const res = await request(app.getHttpServer())
+      .post('/empleados/e1/baja')
+      .expect(409);
+    expect(res.body.message).toMatch(/licencia vigente/i);
+    expect(prisma.empleado.update).not.toHaveBeenCalled();
+    expect(prisma.auditoria.create).not.toHaveBeenCalled();
+  });
+
+  it('reactiva un Empleado inactivo y audita el cambio de estado', async () => {
+    prisma.empleado.findFirst
+      .mockResolvedValueOnce(detalleRow({ estado: 'inactivo' }))
+      .mockResolvedValueOnce(detalleRow({ estado: 'activo' }));
+    prisma.empleado.update.mockResolvedValue({});
+    supabase.getUser.mockResolvedValue({ email: 'admin@empresa.com' });
+
+    const res = await request(app.getHttpServer())
+      .post('/empleados/e1/reactivar')
+      .set('Authorization', 'Bearer token-valido')
+      .expect(200);
+    expect(res.body.estado).toBe('activo');
+    expect(prisma.auditoria.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        evento: 'update',
+        autor: 'admin@empresa.com',
+        detalle: expect.objectContaining({
+          cambios: [{ campo: 'estado', antes: 'inactivo', despues: 'activo' }],
+        }),
+      }),
+    });
+  });
+
+  it('rechaza reactivar un Empleado que ya está activo', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(detalleRow());
+
+    await request(app.getHttpServer()).post('/empleados/e1/reactivar').expect(409);
+    expect(prisma.empleado.update).not.toHaveBeenCalled();
+  });
 });
 
 const describeIfDb = process.env.TEST_DATABASE_URL ? describe : describe.skip;
@@ -612,5 +695,50 @@ describeIfDb('Empleados listado persistence (e2e)', () => {
         expect.objectContaining({ campo: 'email' }),
       ]),
     });
+  });
+
+  it('baja lógica: el registro permanece y la reactivación funciona', async () => {
+    const sufijo = Date.now().toString(36);
+    const creado = await request(app.getHttpServer())
+      .post('/empleados')
+      .send({ nombre: 'Baja', apellido: `Logica ${sufijo}`, dni: `${Date.now()}` })
+      .expect(201);
+    creados.push(creado.body.id);
+
+    const dadoDeBaja = await request(app.getHttpServer())
+      .post(`/empleados/${creado.body.id}/baja`)
+      .expect(200);
+    expect(dadoDeBaja.body.estado).toBe('inactivo');
+
+    const sigue = await request(app.getHttpServer())
+      .get(`/empleados/${creado.body.id}`)
+      .expect(200);
+    expect(sigue.body).toMatchObject({ id: creado.body.id, estado: 'inactivo' });
+
+    const auditoriaBaja = await prisma.auditoria.findMany({
+      where: { evento: 'baja', entidad: 'empleado' },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+    expect(auditoriaBaja[0].detalle).toMatchObject({ id: creado.body.id, despues: 'inactivo' });
+
+    const reactivado = await request(app.getHttpServer())
+      .post(`/empleados/${creado.body.id}/reactivar`)
+      .expect(200);
+    expect(reactivado.body.estado).toBe('activo');
+
+    const licencia = await prisma.licencia.create({
+      data: {
+        empleadoId: creado.body.id,
+        desde: new Date(Date.now() - 86400000),
+        hasta: new Date(Date.now() + 86400000),
+        motivo: 'Test',
+      },
+    });
+    const bloqueada = await request(app.getHttpServer())
+      .post(`/empleados/${creado.body.id}/baja`)
+      .expect(409);
+    expect(bloqueada.body.message).toMatch(/licencia vigente/i);
+    await prisma.licencia.delete({ where: { id: licencia.id } });
   });
 });

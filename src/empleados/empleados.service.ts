@@ -120,6 +120,47 @@ export class EmpleadosService {
     return this.toDetalle(empleado);
   }
 
+  async darDeBaja(idOLegajo: string, authorization?: string): Promise<EmpleadoDetalle> {
+    const autor = await this.resolveActor(authorization);
+    const actual = await this.findOrThrow(idOLegajo);
+    if (actual.estado === 'inactivo') {
+      throw new ConflictException('El Empleado ya está inactivo');
+    }
+    await this.assertSinLicenciaVigente(actual.id, 'dar de baja');
+
+    await this.prisma.empleado.update({
+      where: { id: actual.id },
+      data: { estado: 'inactivo' },
+    });
+    await this.audit.record('baja', autor, 'empleado', {
+      id: actual.id,
+      legajo: actual.legajo,
+      antes: actual.estado,
+      despues: 'inactivo',
+    });
+    return this.toDetalle(await this.findOrThrow(actual.id));
+  }
+
+  async reactivar(idOLegajo: string, authorization?: string): Promise<EmpleadoDetalle> {
+    const autor = await this.resolveActor(authorization);
+    const actual = await this.findOrThrow(idOLegajo);
+    if (actual.estado === 'activo') {
+      throw new ConflictException('El Empleado ya está activo');
+    }
+    await this.assertSinLicenciaVigente(actual.id, 'reactivar');
+
+    await this.prisma.empleado.update({
+      where: { id: actual.id },
+      data: { estado: 'activo' },
+    });
+    await this.audit.record('update', autor, 'empleado', {
+      id: actual.id,
+      legajo: actual.legajo,
+      cambios: [{ campo: 'estado', antes: actual.estado, despues: 'activo' }],
+    });
+    return this.toDetalle(await this.findOrThrow(actual.id));
+  }
+
   async update(
     idOLegajo: string,
     dto: UpdateEmpleadoDto,
@@ -212,6 +253,22 @@ export class EmpleadosService {
     });
 
     return this.toDetalle(await this.findOrThrow(actual.id));
+  }
+
+  private async assertSinLicenciaVigente(empleadoId: string, accion: string) {
+    const ahora = new Date();
+    const licencia = await this.prisma.licencia.findFirst({
+      where: {
+        empleadoId,
+        desde: { lte: ahora },
+        hasta: { gte: ahora },
+      },
+    });
+    if (licencia) {
+      throw new ConflictException(
+        `El Empleado tiene una licencia vigente: no se puede ${accion} hasta que finalice`,
+      );
+    }
   }
 
   private async assertAreaExiste(areaId?: string | null) {
