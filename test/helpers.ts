@@ -56,6 +56,14 @@ export async function buildApp(prisma: ReturnType<typeof makePrismaMock>): Promi
   return app;
 }
 
+/** App real contra la base de pruebas (requiere TEST_DATABASE_URL). */
+export async function buildRealApp(): Promise<INestApplication> {
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const app = makeApp(moduleRef);
+  await app.init();
+  return app;
+}
+
 export function empleadoRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'e1',

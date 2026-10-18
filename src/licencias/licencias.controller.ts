@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Headers, HttpCode, Post, Query } from '@nestjs/common';
+import { ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateLicenciaDto, LicenciaResponse, ListLicenciasQueryDto } from './licencia.dto';
 import { LicenciasService } from './licencias.service';
 
@@ -12,8 +12,16 @@ export class LicenciasController {
   @HttpCode(201)
   @ApiOperation({ summary: 'Registra una licencia; sincroniza el Estado del Empleado' })
   @ApiCreatedResponse({ type: LicenciaResponse })
-  create(@Body() dto: CreateLicenciaDto): Promise<LicenciaResponse> {
-    return this.licencias.create(dto);
+  @ApiHeader({
+    name: 'authorization',
+    required: false,
+    description: 'Bearer <token> del Administrador de RRHH',
+  })
+  create(
+    @Body() dto: CreateLicenciaDto,
+    @Headers('authorization') authorization?: string,
+  ): Promise<LicenciaResponse> {
+    return this.licencias.create(dto, authorization);
   }
 
   @Get()

@@ -528,7 +528,17 @@
     "/licencias": {
       "post": {
         "operationId": "LicenciasController_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "authorization",
+            "required": false,
+            "in": "header",
+            "description": "Bearer <token> del Administrador de RRHH",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {

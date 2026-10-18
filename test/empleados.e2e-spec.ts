@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SupabaseService } from '../src/supabase/supabase.service';
-import { empleadoRow, makeApp, makePrismaMock } from './helpers';
+import { buildRealApp, empleadoRow, makeApp, makePrismaMock } from './helpers';
 
 describe('Empleados listado y alta (e2e)', () => {
   let app: INestApplication;
@@ -531,9 +531,7 @@ describeIfDb('Empleados listado persistence (e2e)', () => {
 
   beforeAll(async () => {
     process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = makeApp(moduleRef);
-    await app.init();
+    app = await buildRealApp();
     prisma = app.get(PrismaService);
   });
 

@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { extractBearerToken } from '../common/extract-bearer';
+import { resolveActor } from '../common/resolve-actor';
 import { syncEstadoPorLicencia } from '../licencias/sync-estado';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -80,7 +80,7 @@ export class EmpleadosService {
   }
 
   async create(dto: CreateEmpleadoDto, authorization?: string) {
-    const autor = await this.resolveActor(authorization);
+    const autor = await resolveActor(this.supabase, authorization);
     const area = await this.assertAreaExiste(dto.areaId);
     await this.assertSupervisorValido(dto.supervisorId);
 
@@ -134,7 +134,7 @@ export class EmpleadosService {
     authorization: string | undefined,
     hacia: EstadoEmpleado,
   ): Promise<EmpleadoDetalle> {
-    const autor = await this.resolveActor(authorization);
+    const autor = await resolveActor(this.supabase, authorization);
     const actual = await this.findOrThrow(idOLegajo);
     if (actual.estado === hacia) {
       throw new ConflictException(`El Empleado ya está ${hacia}`);
@@ -170,7 +170,7 @@ export class EmpleadosService {
     dto: UpdateEmpleadoDto,
     authorization?: string,
   ): Promise<EmpleadoDetalle> {
-    const autor = await this.resolveActor(authorization);
+    const autor = await resolveActor(this.supabase, authorization);
     const actual = await this.findOrThrow(idOLegajo);
 
     let areaId = actual.areaId;
@@ -246,6 +246,17 @@ export class EmpleadosService {
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.empleado.update({ where: { id: actual.id }, data });
+        const cambioEstado = await syncEstadoPorLicencia(tx, actual.id);
+        const todosLosCambios = cambioEstado
+          ? [
+              ...cambios,
+              {
+                campo: 'estado',
+                antes: cambioEstado.antes,
+                despues: cambioEstado.despues,
+              },
+            ]
+          : cambios;
         await this.audit.record(
           'update',
           autor,
@@ -253,11 +264,10 @@ export class EmpleadosService {
           {
             id: actual.id,
             legajo: data.legajo ?? actual.legajo,
-            cambios,
+            cambios: todosLosCambios,
           },
           tx,
         );
-        await syncEstadoPorLicencia(tx, actual.id);
       });
     } catch (error) {
       this.manejarUnicos(error);
@@ -394,13 +404,6 @@ export class EmpleadosService {
       if (!existe) return legajo;
       n += 1;
     }
-  }
-
-  private async resolveActor(authorization?: string): Promise<string | null> {
-    const token = extractBearerToken(authorization);
-    if (!token) return null;
-    const user = await this.supabase.getUser(token);
-    return user.email ?? null;
   }
 
   private isUniqueViolation(error: unknown, field: string): boolean {

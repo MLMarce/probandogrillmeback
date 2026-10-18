@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { buildApp, empleadoRow, makePrismaMock } from './helpers';
+import { buildApp, buildRealApp, empleadoRow, makePrismaMock } from './helpers';
 
 function licenciaRow(overrides: Record<string, unknown> = {}) {
   const ahora = Date.now();
@@ -69,6 +69,46 @@ describe('Licencias (e2e)', () => {
       where: { id: 'e1' },
       data: { estado: 'licencia' },
     });
+    expect(prisma.auditoria.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ evento: 'create', entidad: 'licencia' }),
+      }),
+    );
+    expect(prisma.auditoria.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ evento: 'update', entidad: 'empleado' }),
+      }),
+    );
+  });
+
+  it('rechaza licencia vigente sobre un Empleado inactivo', async () => {
+    prisma.empleado.findUnique.mockResolvedValueOnce(empleadoRow({ estado: 'inactivo' }));
+
+    await request(app.getHttpServer())
+      .post('/licencias')
+      .send({ empleadoId: 'e1', desde: iso(-1), hasta: iso(1) })
+      .expect(409);
+    expect(prisma.licencia.create).not.toHaveBeenCalled();
+    expect(prisma.empleado.update).not.toHaveBeenCalled();
+  });
+
+  it('normaliza un hasta date-only al final del día UTC', async () => {
+    prisma.empleado.findUnique.mockResolvedValue(empleadoRow());
+    prisma.licencia.create.mockResolvedValue(licenciaRow());
+
+    await request(app.getHttpServer())
+      .post('/licencias')
+      .send({ empleadoId: 'e1', desde: '2026-12-01', hasta: '2026-12-05' })
+      .expect(201);
+
+    expect(prisma.licencia.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          desde: new Date('2026-12-01T00:00:00.000Z'),
+          hasta: new Date('2026-12-05T23:59:59.999Z'),
+        }),
+      }),
+    );
   });
 
   it('rechaza fechas desde > hasta con 422 sin abrir transacción', async () => {
@@ -168,12 +208,7 @@ describeIfDb('Licencias persistence (e2e)', () => {
 
   beforeAll(async () => {
     process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
-    const { Test } = await import('@nestjs/testing');
-    const { AppModule } = await import('../src/app.module');
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    const { makeApp } = await import('./helpers');
-    app = makeApp(moduleRef);
-    await app.init();
+    app = await buildRealApp();
     prisma = app.get(PrismaService);
   });
 
@@ -240,6 +275,9 @@ describeIfDb('Licencias persistence (e2e)', () => {
       .get(`/licencias?empleadoId=${empleado.id}`)
       .expect(200);
     expect(historico.body).toHaveLength(2);
+
+    const auditorias = await prisma.auditoria.findMany({ where: { entidad: 'licencia' } });
+    expect(auditorias.length).toBeGreaterThan(0);
   });
 
   it('devuelve 422 si desde es posterior a hasta', async () => {
