@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { isEmail, isISO8601 } from 'class-validator';
 import { AuditService } from '../audit/audit.service';
 import { resolveActor } from '../common/resolve-actor';
@@ -125,20 +125,38 @@ export class ImportacionService {
           dni: fila.dni,
         });
       } catch (error) {
-        if (error instanceof UnprocessableEntityException || error instanceof NotFoundException) {
-          throw error;
+        if (error instanceof ConflictException) {
+          // Carrera entre preview y confirmación: el duplicado se omite y se reporta.
+          omitidos += 1;
+          detalle.push({
+            fila: fila.fila,
+            estado: 'omitida',
+            motivo: error.message,
+            legajo: null,
+            nombre: fila.nombre,
+            apellido: fila.apellido,
+            dni: fila.dni,
+          });
+          continue;
         }
-        // Carrera entre preview y confirmación: el duplicado se omite y se reporta.
-        omitidos += 1;
-        detalle.push({
-          fila: fila.fila,
-          estado: 'omitida',
-          motivo: error instanceof Error ? error.message : 'No se pudo crear el Empleado',
-          legajo: null,
-          nombre: fila.nombre,
-          apellido: fila.apellido,
-          dni: fila.dni,
-        });
+        if (
+          error instanceof UnprocessableEntityException ||
+          error instanceof NotFoundException
+        ) {
+          // Ej.: el Área fue borrada entre la validación y la inserción.
+          errores += 1;
+          detalle.push({
+            fila: fila.fila,
+            estado: 'error',
+            motivo: error.message,
+            legajo: null,
+            nombre: fila.nombre,
+            apellido: fila.apellido,
+            dni: fila.dni,
+          });
+          continue;
+        }
+        throw error;
       }
     }
 

@@ -147,6 +147,31 @@ describe('Importación CSV (e2e)', () => {
       }),
     );
   });
+
+  it('continúa ante un error de creación y lo reporta como error de fila', async () => {
+    prisma.area.findMany.mockResolvedValue([{ id: 'a1', nombreNorm: 'mantenimiento' }]);
+    prisma.area.findUnique.mockResolvedValue(null);
+    const csv = [
+      'legajo,nombre,apellido,dni,area',
+      ',Sin,Area,90000101,Mantenimiento',
+    ].join('\n');
+
+    const res = await request(app.getHttpServer())
+      .post('/importaciones/confirm')
+      .send({ csv })
+      .expect(200);
+
+    expect(res.body).toMatchObject({ creados: 0, omitidos: 0, errores: 1 });
+    expect(res.body.detalle[0]).toMatchObject({
+      estado: 'error',
+      motivo: 'El Área indicada no existe',
+    });
+    expect(prisma.auditoria.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ evento: 'importacion' }),
+      }),
+    );
+  });
 });
 
 const describeIfDb = process.env.TEST_DATABASE_URL ? describe : describe.skip;
