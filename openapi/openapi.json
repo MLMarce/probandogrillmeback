@@ -365,6 +365,85 @@
           "empleados"
         ]
       }
+    },
+    "/empleados/{id}": {
+      "get": {
+        "operationId": "EmpleadosController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmpleadoDetalle"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Ficha completa por id o legajo",
+        "tags": [
+          "empleados"
+        ]
+      },
+      "patch": {
+        "operationId": "EmpleadosController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "required": false,
+            "in": "header",
+            "description": "Bearer <token> del admin",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEmpleadoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmpleadoDetalle"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Edita campos; registra en auditoría los cambios",
+        "tags": [
+          "empleados"
+        ]
+      }
     }
   },
   "info": {
@@ -582,6 +661,92 @@
           "pageSize"
         ]
       },
+      "EmpleadoDetalle": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "legajo": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string"
+          },
+          "fechaNacimiento": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "direccion": {
+            "type": "string",
+            "nullable": true
+          },
+          "puesto": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaIngreso": {
+            "type": "string",
+            "nullable": true
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "activo",
+              "inactivo",
+              "licencia"
+            ]
+          },
+          "areaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "areaNombre": {
+            "type": "string",
+            "nullable": true
+          },
+          "supervisorId": {
+            "type": "string",
+            "nullable": true
+          },
+          "supervisorNombre": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "legajo",
+          "nombre",
+          "apellido",
+          "dni",
+          "fechaNacimiento",
+          "email",
+          "telefono",
+          "direccion",
+          "puesto",
+          "fechaIngreso",
+          "estado",
+          "areaId",
+          "areaNombre",
+          "supervisorId",
+          "supervisorNombre"
+        ]
+      },
       "CreateEmpleadoDto": {
         "type": "object",
         "properties": {
@@ -630,6 +795,50 @@
           "apellido",
           "dni"
         ]
+      },
+      "UpdateEmpleadoDto": {
+        "type": "object",
+        "properties": {
+          "legajo": {
+            "type": "string",
+            "description": "Si no se provee, se autgenera secuencialmente"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "apellido": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string"
+          },
+          "fechaNacimiento": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "direccion": {
+            "type": "string"
+          },
+          "puesto": {
+            "type": "string",
+            "example": "Mantenimiento de electricidad"
+          },
+          "fechaIngreso": {
+            "type": "string"
+          },
+          "areaId": {
+            "type": "string"
+          },
+          "supervisorId": {
+            "type": "string",
+            "description": "Id de un Empleado activo"
+          }
+        }
       }
     }
   }

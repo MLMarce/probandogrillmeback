@@ -15,6 +15,7 @@ function makePrismaMock() {
       findFirst: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     area: {
       findUnique: jest.fn(),
@@ -272,6 +273,147 @@ describe('Empleados listado y alta (e2e)', () => {
       expect.objectContaining({ data: expect.objectContaining({ autor: null }) }),
     );
   });
+
+  function detalleRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'e1',
+      legajo: 'L-0001',
+      nombre: 'Lucas',
+      apellido: 'Gómez',
+      dni: '30111222',
+      fechaNacimiento: null,
+      email: null,
+      telefono: null,
+      direccion: null,
+      puesto: 'Electricista',
+      fechaIngreso: null,
+      estado: 'activo',
+      areaId: 'a1',
+      area: { id: 'a1', nombre: 'Mantenimiento' },
+      supervisorId: null,
+      supervisor: null,
+      ...overrides,
+    };
+  }
+
+  it('devuelve la ficha completa por id', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(
+      detalleRow({
+        supervisorId: 'e9',
+        supervisor: { nombre: 'Ana', apellido: 'Suárez' },
+      }),
+    );
+
+    const res = await request(app.getHttpServer()).get('/empleados/e1').expect(200);
+    expect(res.body).toMatchObject({
+      id: 'e1',
+      legajo: 'L-0001',
+      dni: '30111222',
+      puesto: 'Electricista',
+      estado: 'activo',
+      areaNombre: 'Mantenimiento',
+      supervisorNombre: 'Ana Suárez',
+    });
+    expect(prisma.empleado.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { OR: [{ id: 'e1' }, { legajo: 'e1' }] },
+      }),
+    );
+  });
+
+  it('acepta legajo como identificador de la ficha', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(detalleRow());
+
+    const res = await request(app.getHttpServer()).get('/empleados/L-0001').expect(200);
+    expect(res.body.id).toBe('e1');
+  });
+
+  it('devuelve 404 si el Empleado no existe', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(null);
+    await request(app.getHttpServer()).get('/empleados/no-existe').expect(404);
+  });
+
+  it('edita campos y registra los cambios en auditoría', async () => {
+    prisma.empleado.findFirst
+      .mockResolvedValueOnce(detalleRow())
+      .mockResolvedValueOnce(detalleRow({ puesto: 'Supervisor electricidad' }));
+    prisma.empleado.update.mockResolvedValue({});
+    supabase.getUser.mockResolvedValue({ email: 'admin@empresa.com' });
+
+    const res = await request(app.getHttpServer())
+      .patch('/empleados/e1')
+      .set('Authorization', 'Bearer token-valido')
+      .send({ puesto: 'Supervisor electricidad' })
+      .expect(200);
+    expect(res.body.puesto).toBe('Supervisor electricidad');
+
+    expect(prisma.empleado.update).toHaveBeenCalledWith({
+      where: { id: 'e1' },
+      data: { puesto: 'Supervisor electricidad' },
+    });
+    expect(prisma.auditoria.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        evento: 'update',
+        autor: 'admin@empresa.com',
+        entidad: 'empleado',
+        detalle: expect.objectContaining({
+          id: 'e1',
+          cambios: [
+            { campo: 'puesto', antes: 'Electricista', despues: 'Supervisor electricidad' },
+          ],
+        }),
+      }),
+    });
+  });
+
+  it('no persiste ni audita cuando no hay cambios', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(detalleRow());
+
+    const res = await request(app.getHttpServer())
+      .patch('/empleados/e1')
+      .send({ puesto: 'Electricista' })
+      .expect(200);
+    expect(res.body.puesto).toBe('Electricista');
+    expect(prisma.empleado.update).not.toHaveBeenCalled();
+    expect(prisma.auditoria.create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un supervisor que no está activo', async () => {
+    prisma.empleado.findFirst
+      .mockResolvedValueOnce(detalleRow())
+      .mockResolvedValueOnce(null);
+
+    await request(app.getHttpServer())
+      .patch('/empleados/e1')
+      .send({ supervisorId: 'e-inactivo' })
+      .expect(422);
+    expect(prisma.empleado.update).not.toHaveBeenCalled();
+  });
+
+  it('rechaza que un Empleado sea su propio supervisor', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(detalleRow());
+
+    await request(app.getHttpServer())
+      .patch('/empleados/e1')
+      .send({ supervisorId: 'e1' })
+      .expect(422);
+  });
+
+  it('rechaza un legajo duplicado al editar con 409', async () => {
+    prisma.empleado.findFirst.mockResolvedValue(detalleRow());
+    prisma.empleado.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '6.16.2',
+        meta: { target: ['legajo'] },
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .patch('/empleados/e1')
+      .send({ legajo: 'L-0002' })
+      .expect(409);
+  });
 });
 
 const describeIfDb = process.env.TEST_DATABASE_URL ? describe : describe.skip;
@@ -373,5 +515,39 @@ describeIfDb('Empleados listado persistence (e2e)', () => {
       .post('/empleados')
       .send({ nombre: 'Otro', apellido: `Persiste ${sufijo}`, dni: creado!.dni })
       .expect(409);
+  });
+
+  it('edita un Empleado real y audita el cambio', async () => {
+    const sufijo = Date.now().toString(36);
+    const creado = await request(app.getHttpServer())
+      .post('/empleados')
+      .send({ nombre: 'Edicion', apellido: `Real ${sufijo}`, dni: `${Date.now()}` })
+      .expect(201);
+    creados.push(creado.body.id);
+
+    const ficha = await request(app.getHttpServer())
+      .get(`/empleados/${creado.body.legajo}`)
+      .expect(200);
+    expect(ficha.body.nombre).toBe('Edicion');
+
+    const editado = await request(app.getHttpServer())
+      .patch(`/empleados/${creado.body.id}`)
+      .send({ puesto: 'Operador', email: `editado.${sufijo}@empresa.com` })
+      .expect(200);
+    expect(editado.body.puesto).toBe('Operador');
+    expect(editado.body.email).toBe(`editado.${sufijo}@empresa.com`);
+
+    const auditorias = await prisma.auditoria.findMany({
+      where: { evento: 'update', entidad: 'empleado' },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+    expect(auditorias[0].detalle).toMatchObject({
+      id: creado.body.id,
+      cambios: expect.arrayContaining([
+        expect.objectContaining({ campo: 'puesto', despues: 'Operador' }),
+        expect.objectContaining({ campo: 'email' }),
+      ]),
+    });
   });
 });

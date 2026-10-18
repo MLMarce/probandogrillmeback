@@ -76,3 +76,53 @@ export class PaginatedEmpleados {
   @ApiProperty()
   pageSize!: number;
 }
+
+export class EmpleadoDetalle {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  legajo!: string;
+
+  @ApiProperty()
+  nombre!: string;
+
+  @ApiProperty()
+  apellido!: string;
+
+  @ApiProperty()
+  dni!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  fechaNacimiento!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  email!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  telefono!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  direccion!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  puesto!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  fechaIngreso!: string | null;
+
+  @ApiProperty({ enum: ESTADOS_EMPLEADO })
+  estado!: EstadoEmpleado;
+
+  @ApiProperty({ type: String, nullable: true })
+  areaId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  areaNombre!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  supervisorId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  supervisorNombre!: string | null;
+}
