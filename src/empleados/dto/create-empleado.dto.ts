@@ -23,10 +23,10 @@ export class CreateEmpleadoDto {
   @MinLength(1)
   dni!: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsDateString()
-  fechaNacimiento?: string;
+  fechaNacimiento?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -48,10 +48,10 @@ export class CreateEmpleadoDto {
   @IsString()
   puesto?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsDateString()
-  fechaIngreso?: string;
+  fechaIngreso?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()

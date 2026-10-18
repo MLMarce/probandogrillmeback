@@ -30,13 +30,17 @@ export class EmpleadosController {
   @Get(':id')
   @ApiOperation({ summary: 'Ficha completa por id o legajo' })
   @ApiOkResponse({ type: EmpleadoDetalle })
-  findById(@Param('id') id: string): Promise<EmpleadoDetalle> {
-    return this.empleados.findById(id);
+  findById(@Param('id') idOLegajo: string): Promise<EmpleadoDetalle> {
+    return this.empleados.findById(idOLegajo);
   }
 
   @Post()
   @ApiCreatedResponse({ type: EmpleadoListItem })
-  @ApiHeader({ name: 'authorization', required: false, description: 'Bearer <token> del admin' })
+  @ApiHeader({
+    name: 'authorization',
+    required: false,
+    description: 'Bearer <token> del Administrador de RRHH',
+  })
   create(
     @Body() dto: CreateEmpleadoDto,
     @Headers('authorization') authorization?: string,
@@ -47,12 +51,16 @@ export class EmpleadosController {
   @Patch(':id')
   @ApiOperation({ summary: 'Edita campos; registra en auditoría los cambios' })
   @ApiOkResponse({ type: EmpleadoDetalle })
-  @ApiHeader({ name: 'authorization', required: false, description: 'Bearer <token> del admin' })
+  @ApiHeader({
+    name: 'authorization',
+    required: false,
+    description: 'Bearer <token> del Administrador de RRHH',
+  })
   update(
-    @Param('id') id: string,
+    @Param('id') idOLegajo: string,
     @Body() dto: UpdateEmpleadoDto,
     @Headers('authorization') authorization?: string,
   ): Promise<EmpleadoDetalle> {
-    return this.empleados.update(id, dto, authorization);
+    return this.empleados.update(idOLegajo, dto, authorization);
   }
 }

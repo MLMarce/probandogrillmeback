@@ -333,7 +333,7 @@
             "name": "authorization",
             "required": false,
             "in": "header",
-            "description": "Bearer <token> del admin",
+            "description": "Bearer <token> del Administrador de RRHH",
             "schema": {
               "type": "string"
             }
@@ -411,7 +411,7 @@
             "name": "authorization",
             "required": false,
             "in": "header",
-            "description": "Bearer <token> del admin",
+            "description": "Bearer <token> del Administrador de RRHH",
             "schema": {
               "type": "string"
             }
@@ -764,7 +764,8 @@
             "type": "string"
           },
           "fechaNacimiento": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "email": {
             "type": "string"
@@ -780,7 +781,8 @@
             "example": "Mantenimiento de electricidad"
           },
           "fechaIngreso": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "areaId": {
             "type": "string"
@@ -801,7 +803,7 @@
         "properties": {
           "legajo": {
             "type": "string",
-            "description": "Si no se provee, se autgenera secuencialmente"
+            "description": "Legajo nuevo (debe ser único)"
           },
           "nombre": {
             "type": "string"
@@ -813,7 +815,8 @@
             "type": "string"
           },
           "fechaNacimiento": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "email": {
             "type": "string"
@@ -829,7 +832,8 @@
             "example": "Mantenimiento de electricidad"
           },
           "fechaIngreso": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "areaId": {
             "type": "string"

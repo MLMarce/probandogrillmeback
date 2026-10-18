@@ -26,6 +26,7 @@ const DETALLE_INCLUDE = {
 } satisfies Prisma.EmpleadoInclude;
 
 const CAMPOS_TEXTO = ['legajo', 'nombre', 'apellido', 'dni', 'email', 'telefono', 'direccion', 'puesto'] as const;
+const CAMPOS_TEXTO_OPCIONALES = ['email', 'telefono', 'direccion', 'puesto'] as const;
 const CAMPOS_FECHA = ['fechaNacimiento', 'fechaIngreso'] as const;
 
 @Injectable()
@@ -79,20 +80,8 @@ export class EmpleadosService {
 
   async create(dto: CreateEmpleadoDto, authorization?: string) {
     const autor = await this.resolveActor(authorization);
-    const area = dto.areaId
-      ? await this.prisma.area.findUnique({ where: { id: dto.areaId } })
-      : null;
-    if (dto.areaId && !area) {
-      throw new UnprocessableEntityException('El Área indicada no existe');
-    }
-    if (dto.supervisorId) {
-      const supervisor = await this.prisma.empleado.findFirst({
-        where: { id: dto.supervisorId, estado: 'activo' },
-      });
-      if (!supervisor) {
-        throw new UnprocessableEntityException('El supervisor debe ser un Empleado activo');
-      }
-    }
+    const area = await this.assertAreaExiste(dto.areaId);
+    await this.assertSupervisorValido(dto.supervisorId);
 
     const legajoProvisto = dto.legajo?.trim() || undefined;
 
@@ -140,17 +129,10 @@ export class EmpleadosService {
     const actual = await this.findOrThrow(idOLegajo);
 
     let areaId = actual.areaId;
-    let areaNombre = actual.area?.nombre ?? null;
     if (dto.areaId !== undefined) {
       const nuevaAreaId = dto.areaId.trim() || null;
       if (nuevaAreaId) {
-        const area = await this.prisma.area.findUnique({ where: { id: nuevaAreaId } });
-        if (!area) {
-          throw new UnprocessableEntityException('El Área indicada no existe');
-        }
-        areaNombre = area.nombre;
-      } else {
-        areaNombre = null;
+        await this.assertAreaExiste(nuevaAreaId);
       }
       areaId = nuevaAreaId;
     }
@@ -158,16 +140,8 @@ export class EmpleadosService {
     let supervisorId = actual.supervisorId;
     if (dto.supervisorId !== undefined) {
       const nuevoSupervisorId = dto.supervisorId.trim() || null;
-      if (nuevoSupervisorId) {
-        if (nuevoSupervisorId === actual.id) {
-          throw new UnprocessableEntityException('Un Empleado no puede ser su propio supervisor');
-        }
-        const supervisor = await this.prisma.empleado.findFirst({
-          where: { id: nuevoSupervisorId, estado: 'activo' },
-        });
-        if (!supervisor) {
-          throw new UnprocessableEntityException('El supervisor debe ser un Empleado activo');
-        }
+      if (nuevoSupervisorId !== actual.supervisorId) {
+        await this.assertSupervisorValido(nuevoSupervisorId, actual.id);
       }
       supervisorId = nuevoSupervisorId;
     }
@@ -180,7 +154,7 @@ export class EmpleadosService {
       if (valorDto === undefined) continue;
       const despues = valorDto.trim() || null;
       const antes = actual[campo];
-      if (despues === null && !['email', 'telefono', 'direccion', 'puesto'].includes(campo)) {
+      if (despues === null && !(CAMPOS_TEXTO_OPCIONALES as readonly string[]).includes(campo)) {
         throw new UnprocessableEntityException(`${campo} no puede quedar vacío`);
       }
       if (despues !== (antes ?? null)) {
@@ -192,8 +166,15 @@ export class EmpleadosService {
     for (const campo of CAMPOS_FECHA) {
       const valorDto = dto[campo];
       if (valorDto === undefined) continue;
-      const fecha = new Date(valorDto);
       const antes = actual[campo];
+      if (valorDto === null) {
+        if (antes !== null) {
+          cambios.push({ campo, antes: antes?.toISOString() ?? null, despues: null });
+          (data as Record<string, unknown>)[campo] = null;
+        }
+        continue;
+      }
+      const fecha = new Date(valorDto);
       if (antes?.getTime() !== fecha.getTime()) {
         cambios.push({
           campo,
@@ -220,12 +201,7 @@ export class EmpleadosService {
     try {
       await this.prisma.empleado.update({ where: { id: actual.id }, data });
     } catch (error) {
-      if (this.isUniqueViolation(error, 'legajo')) {
-        throw new ConflictException('Ya existe un Empleado con ese legajo');
-      }
-      if (this.isUniqueViolation(error, 'dni')) {
-        throw new ConflictException('Ya existe un Empleado con ese DNI');
-      }
+      this.manejarUnicos(error);
       throw error;
     }
 
@@ -235,12 +211,38 @@ export class EmpleadosService {
       cambios,
     });
 
-    const actualizado = await this.findOrThrow(actual.id);
-    const detalle = this.toDetalle(actualizado);
-    if (dto.areaId !== undefined) {
-      detalle.areaNombre = areaNombre;
+    return this.toDetalle(await this.findOrThrow(actual.id));
+  }
+
+  private async assertAreaExiste(areaId?: string | null) {
+    if (!areaId) return null;
+    const area = await this.prisma.area.findUnique({ where: { id: areaId } });
+    if (!area) {
+      throw new UnprocessableEntityException('El Área indicada no existe');
     }
-    return detalle;
+    return area;
+  }
+
+  private async assertSupervisorValido(supervisorId?: string | null, exceptoId?: string) {
+    if (!supervisorId) return;
+    if (exceptoId && supervisorId === exceptoId) {
+      throw new UnprocessableEntityException('Un Empleado no puede ser su propio supervisor');
+    }
+    const supervisor = await this.prisma.empleado.findFirst({
+      where: { id: supervisorId, estado: 'activo' },
+    });
+    if (!supervisor) {
+      throw new UnprocessableEntityException('El supervisor debe ser un Empleado activo');
+    }
+  }
+
+  private manejarUnicos(error: unknown): void {
+    if (this.isUniqueViolation(error, 'legajo')) {
+      throw new ConflictException('Ya existe un Empleado con ese legajo');
+    }
+    if (this.isUniqueViolation(error, 'dni')) {
+      throw new ConflictException('Ya existe un Empleado con ese DNI');
+    }
   }
 
   private async findOrThrow(idOLegajo: string): Promise<EmpleadoConRelaciones> {
@@ -309,12 +311,7 @@ export class EmpleadosService {
         ) {
           continue;
         }
-        if (this.isUniqueViolation(error, 'legajo')) {
-          throw new ConflictException('Ya existe un Empleado con ese legajo');
-        }
-        if (this.isUniqueViolation(error, 'dni')) {
-          throw new ConflictException('Ya existe un Empleado con ese DNI');
-        }
+        this.manejarUnicos(error);
         throw error;
       }
     }

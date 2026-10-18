@@ -414,6 +414,69 @@ describe('Empleados listado y alta (e2e)', () => {
       .send({ legajo: 'L-0002' })
       .expect(409);
   });
+
+  it('limpia una fecha con string vacío sin rechazar con 400', async () => {
+    const conFecha = new Date('1990-05-01T00:00:00.000Z');
+    prisma.empleado.findFirst
+      .mockResolvedValueOnce(detalleRow({ fechaNacimiento: conFecha }))
+      .mockResolvedValueOnce(detalleRow({ fechaNacimiento: null }));
+    prisma.empleado.update.mockResolvedValue({});
+
+    const res = await request(app.getHttpServer())
+      .patch('/empleados/e1')
+      .send({ fechaNacimiento: '' })
+      .expect(200);
+    expect(res.body.fechaNacimiento).toBeNull();
+    expect(prisma.empleado.update).toHaveBeenCalledWith({
+      where: { id: 'e1' },
+      data: { fechaNacimiento: null },
+    });
+    expect(prisma.auditoria.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          detalle: expect.objectContaining({
+            cambios: [
+              { campo: 'fechaNacimiento', antes: conFecha.toISOString(), despues: null },
+            ],
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('permite editar otros campos cuando el supervisor actual está inactivo', async () => {
+    prisma.empleado.findFirst
+      .mockResolvedValueOnce(
+        detalleRow({
+          supervisorId: 'e9',
+          supervisor: { nombre: 'Ana', apellido: 'Inactiva' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        detalleRow({
+          supervisorId: 'e9',
+          supervisor: { nombre: 'Ana', apellido: 'Inactiva' },
+          puesto: 'Nuevo puesto',
+        }),
+      );
+    prisma.empleado.update.mockResolvedValue({});
+
+    const res = await request(app.getHttpServer())
+      .patch('/empleados/e1')
+      .send({ supervisorId: 'e9', puesto: 'Nuevo puesto' })
+      .expect(200);
+    expect(res.body.supervisorNombre).toBe('Ana Inactiva');
+    expect(res.body.puesto).toBe('Nuevo puesto');
+    expect(prisma.auditoria.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          detalle: expect.objectContaining({
+            cambios: [{ campo: 'puesto', antes: 'Electricista', despues: 'Nuevo puesto' }],
+          }),
+        }),
+      }),
+    );
+  });
 });
 
 const describeIfDb = process.env.TEST_DATABASE_URL ? describe : describe.skip;
