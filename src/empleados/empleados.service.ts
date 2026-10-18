@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException, UnprocessableEntityEx
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { extractBearerToken } from '../common/extract-bearer';
+import { syncEstadoPorLicencia } from '../licencias/sync-estado';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import {
@@ -243,14 +244,21 @@ export class EmpleadosService {
     }
 
     try {
-      await this.prisma.$transaction([
-        this.prisma.empleado.update({ where: { id: actual.id }, data }),
-        this.audit.record('update', autor, 'empleado', {
-          id: actual.id,
-          legajo: data.legajo ?? actual.legajo,
-          cambios,
-        }),
-      ]);
+      await this.prisma.$transaction(async (tx) => {
+        await tx.empleado.update({ where: { id: actual.id }, data });
+        await this.audit.record(
+          'update',
+          autor,
+          'empleado',
+          {
+            id: actual.id,
+            legajo: data.legajo ?? actual.legajo,
+            cambios,
+          },
+          tx,
+        );
+        await syncEstadoPorLicencia(tx, actual.id);
+      });
     } catch (error) {
       this.manejarUnicos(error);
       throw error;

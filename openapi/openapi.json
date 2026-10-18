@@ -524,6 +524,70 @@
           "empleados"
         ]
       }
+    },
+    "/licencias": {
+      "post": {
+        "operationId": "LicenciasController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLicenciaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicenciaResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Registra una licencia; sincroniza el Estado del Empleado",
+        "tags": [
+          "licencias"
+        ]
+      },
+      "get": {
+        "operationId": "LicenciasController_findAll",
+        "parameters": [
+          {
+            "name": "empleadoId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LicenciaResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Histórico de licencias de un Empleado (más recientes primero)",
+        "tags": [
+          "licencias"
+        ]
+      }
     }
   },
   "info": {
@@ -923,6 +987,65 @@
             "description": "Id de un Empleado activo"
           }
         }
+      },
+      "CreateLicenciaDto": {
+        "type": "object",
+        "properties": {
+          "empleadoId": {
+            "type": "string"
+          },
+          "desde": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "hasta": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "motivo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "empleadoId",
+          "desde",
+          "hasta"
+        ]
+      },
+      "LicenciaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "empleadoId": {
+            "type": "string"
+          },
+          "desde": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "hasta": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "vigente": {
+            "type": "boolean",
+            "description": "desde ≤ hoy ≤ hasta"
+          }
+        },
+        "required": [
+          "id",
+          "empleadoId",
+          "desde",
+          "hasta",
+          "motivo",
+          "vigente"
+        ]
       }
     }
   }

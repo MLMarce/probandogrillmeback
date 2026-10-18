@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
@@ -6,48 +6,7 @@ import { Prisma } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SupabaseService } from '../src/supabase/supabase.service';
-
-function makePrismaMock() {
-  return {
-    empleado: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      count: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    area: {
-      findUnique: jest.fn(),
-    },
-    licencia: {
-      findFirst: jest.fn(),
-    },
-    auditoria: {
-      create: jest.fn(),
-    },
-    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
-  };
-}
-
-function makeApp(moduleRef: { createNestApplication: () => INestApplication }): INestApplication {
-  const app = moduleRef.createNestApplication();
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  return app;
-}
-
-function empleadoRow(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'e1',
-    legajo: 'L-0001',
-    nombre: 'Lucas',
-    apellido: 'Gómez',
-    puesto: 'Mantenimiento de electricidad',
-    estado: 'activo',
-    area: { id: 'a1', nombre: 'Mantenimiento' },
-    ...overrides,
-  };
-}
+import { empleadoRow, makeApp, makePrismaMock } from './helpers';
 
 describe('Empleados listado y alta (e2e)', () => {
   let app: INestApplication;

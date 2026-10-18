@@ -13,8 +13,9 @@ export class AuditService {
     autor: string | null,
     entidad: string | null,
     detalle: Prisma.InputJsonValue | undefined = undefined,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Prisma.PrismaPromise<Auditoria> {
-    return this.prisma.auditoria.create({
+    return db.auditoria.create({
       data: { evento, autor, entidad, detalle },
     });
   }
