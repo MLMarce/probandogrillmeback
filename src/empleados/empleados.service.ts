@@ -121,43 +121,46 @@ export class EmpleadosService {
   }
 
   async darDeBaja(idOLegajo: string, authorization?: string): Promise<EmpleadoDetalle> {
-    const autor = await this.resolveActor(authorization);
-    const actual = await this.findOrThrow(idOLegajo);
-    if (actual.estado === 'inactivo') {
-      throw new ConflictException('El Empleado ya está inactivo');
-    }
-    await this.assertSinLicenciaVigente(actual.id, 'dar de baja');
-
-    await this.prisma.empleado.update({
-      where: { id: actual.id },
-      data: { estado: 'inactivo' },
-    });
-    await this.audit.record('baja', autor, 'empleado', {
-      id: actual.id,
-      legajo: actual.legajo,
-      antes: actual.estado,
-      despues: 'inactivo',
-    });
-    return this.toDetalle(await this.findOrThrow(actual.id));
+    return this.transicionEstado(idOLegajo, authorization, 'inactivo');
   }
 
   async reactivar(idOLegajo: string, authorization?: string): Promise<EmpleadoDetalle> {
+    return this.transicionEstado(idOLegajo, authorization, 'activo');
+  }
+
+  private async transicionEstado(
+    idOLegajo: string,
+    authorization: string | undefined,
+    hacia: EstadoEmpleado,
+  ): Promise<EmpleadoDetalle> {
     const autor = await this.resolveActor(authorization);
     const actual = await this.findOrThrow(idOLegajo);
-    if (actual.estado === 'activo') {
-      throw new ConflictException('El Empleado ya está activo');
+    if (actual.estado === hacia) {
+      throw new ConflictException(`El Empleado ya está ${hacia}`);
     }
-    await this.assertSinLicenciaVigente(actual.id, 'reactivar');
+    const accion = hacia === 'inactivo' ? 'dar de baja' : 'reactivar';
+    await this.assertSinLicenciaVigente(actual.id, accion);
 
-    await this.prisma.empleado.update({
-      where: { id: actual.id },
-      data: { estado: 'activo' },
-    });
-    await this.audit.record('update', autor, 'empleado', {
-      id: actual.id,
-      legajo: actual.legajo,
-      cambios: [{ campo: 'estado', antes: actual.estado, despues: 'activo' }],
-    });
+    const evento: 'baja' | 'update' = hacia === 'inactivo' ? 'baja' : 'update';
+    await this.prisma.$transaction([
+      this.prisma.empleado.update({
+        where: { id: actual.id },
+        data: { estado: hacia },
+      }),
+      this.audit.record(
+        evento,
+        autor,
+        'empleado',
+        hacia === 'inactivo'
+          ? { id: actual.id, legajo: actual.legajo, antes: actual.estado, despues: hacia }
+          : {
+              id: actual.id,
+              legajo: actual.legajo,
+              cambios: [{ campo: 'estado', antes: actual.estado, despues: hacia }],
+            },
+      ),
+    ]);
+
     return this.toDetalle(await this.findOrThrow(actual.id));
   }
 
@@ -240,17 +243,18 @@ export class EmpleadosService {
     }
 
     try {
-      await this.prisma.empleado.update({ where: { id: actual.id }, data });
+      await this.prisma.$transaction([
+        this.prisma.empleado.update({ where: { id: actual.id }, data }),
+        this.audit.record('update', autor, 'empleado', {
+          id: actual.id,
+          legajo: data.legajo ?? actual.legajo,
+          cambios,
+        }),
+      ]);
     } catch (error) {
       this.manejarUnicos(error);
       throw error;
     }
-
-    await this.audit.record('update', autor, 'empleado', {
-      id: actual.id,
-      legajo: data.legajo ?? actual.legajo,
-      cambios,
-    });
 
     return this.toDetalle(await this.findOrThrow(actual.id));
   }

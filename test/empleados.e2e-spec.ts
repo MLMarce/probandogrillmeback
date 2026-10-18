@@ -26,6 +26,7 @@ function makePrismaMock() {
     auditoria: {
       create: jest.fn(),
     },
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
 }
 

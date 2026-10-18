@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Auditoria, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type EventoAuditoria = 'login' | 'create' | 'update' | 'baja' | 'importacion';
@@ -8,12 +8,12 @@ export type EventoAuditoria = 'login' | 'create' | 'update' | 'baja' | 'importac
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async record(
+  record(
     evento: EventoAuditoria,
     autor: string | null,
     entidad: string | null,
     detalle: Prisma.InputJsonValue | undefined = undefined,
-  ) {
+  ): Prisma.PrismaPromise<Auditoria> {
     return this.prisma.auditoria.create({
       data: { evento, autor, entidad, detalle },
     });
