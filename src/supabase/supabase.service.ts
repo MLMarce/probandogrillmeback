@@ -79,7 +79,7 @@ export class SupabaseService {
   async createAccount(email: string, password: string): Promise<SupabaseUser> {
     const res = await fetch(`${this.baseUrl}/auth/v1/admin/users`, {
       method: 'POST',
-      headers: this.authHeaders(),
+      headers: this.authHeaders(this.serviceKey),
       body: JSON.stringify({ email, password, email_confirm: true }),
     });
     if (!res.ok) {

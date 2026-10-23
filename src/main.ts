@@ -24,6 +24,10 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   configureSwagger(app);
   const port = Number(process.env.PORT ?? 3001);
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  });
   await app.listen(port);
 }
 
